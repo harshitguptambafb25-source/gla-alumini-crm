@@ -72,10 +72,154 @@ function filterTable(){const q=document.getElementById('search').value.toLowerCa
 async function openById(id){for(const t of Object.keys(tableMap)){if(t==='profiles')continue;const {data,error}=await sb.from(t).select('*').eq('id',id).maybeSingle();if(!error&&data){openRecord(data,t);return}}toast('Record not found',true)}
 function openRecord(row,source){document.getElementById('modalTitle').textContent=`${source?pretty(source):'Record'} · ${row.id||''}`;document.getElementById('modalBody').innerHTML=`<div class="detail-grid">${Object.entries(row).map(([k,v])=>`<div class="detail"><b>${pretty(k)}</b>${typeof v==='object'?esc(JSON.stringify(v)):esc(v??'—')}</div>`).join('')}</div><div class="toolbar" style="margin-top:16px"><button class="btn" onclick='closeModal();openEditor("${source||"alumni"}",${JSON.stringify(row).replace(/'/g,"&#39;")})'>Edit</button>${source?`<button class="btn danger" onclick='closeModal();deleteRow("${source}","${esc(row.id)}")'>Delete</button>`:''}</div>`;document.getElementById('modal').classList.remove('hidden')}
 function closeModal(){document.getElementById('modal').classList.add('hidden')}
-async function openEditor(k,row={}){if(k==='profiles'){adminUserManager();return}const table=k;let cols=await getColumns(table);cols=cols.filter(c=>!['created_at','updated_at'].includes(c));if(!row.id)cols=cols.filter(c=>c!=='id');
- const special=(c)=>{if(c==='owner_id'||c==='user_id'||c==='caller_id'||c==='assigned_to')return `<input name="${c}" value="${esc(row[c]||currentUser.id)}" readonly>`;if(c==='id')return `<input name="id" value="${esc(row[c]||'')}" readonly>`;if(c.includes('date')||c.includes('_at'))return `<input name="${c}" type="datetime-local" value="${row[c]?String(row[c]).slice(0,16):''}">`;return `<input name="${c}" value="${esc(row[c]??'')}">`};
- document.getElementById('modalTitle').textContent=(row.id?'Edit ':'Add ')+tableMap[k];document.getElementById('modalBody').innerHTML=`<form onsubmit="saveForm(event,'${table}',${row.id?1:0})"><div class="grid2">${cols.map(c=>`<div class="field"><label>${pretty(c)}</label>${special(c)}</div>`).join('')}</div><div class="toolbar"><button class="btn" type="submit">Save</button><button class="btn secondary" type="button" onclick="closeModal()">Cancel</button></div></form>`;document.getElementById('modal').classList.remove('hidden')}
-async function saveForm(e,table,isEdit){e.preventDefault();const fd=new FormData(e.target),obj={};for(const [k,v] of fd.entries()){if(v!==''&&k!=='id')obj[k]=v}if(!isEdit){if(!('owner_id' in obj)&&!('user_id' in obj)&&!['profiles'].includes(table))obj.owner_id=currentUser.id}let res;if(isEdit){const id=fd.get('id');res=await sb.from(table).update(obj).eq('id',id)}else res=await sb.from(table).insert(obj);if(res.error){toast(res.error.message,true);return}toast('Saved successfully');closeModal();route(table)}
+async function openEditor(k,row){
+  if(k==='profiles'){
+    adminUserManager();
+    return;
+  }
+
+  const fields={
+    alumni:[
+      ['full_name','Full Name','text'],
+      ['gender','Gender','text'],
+      ['program','Program','text'],
+      ['specialization','Specialization','text'],
+      ['batch_year','Batch (Year)','number'],
+      ['current_job_title','Current Job Title','text'],
+      ['current_company_name','Current Company Name','text'],
+      ['industry_type','Industry Type','text'],
+      ['work_experience_years','Work Experience (Years)','number'],
+      ['location_city_country','Location (City, Country)','text'],
+      ['contact_number','Contact Number','text'],
+      ['email_id','Email ID','email'],
+      ['linkedin_profile','LinkedIn Profile','url'],
+      ['willingness_to_engage','Willingness to Engage','text'],
+      ['preferred_engagement_type','Preferred Engagement Type','text'],
+      ['availability','Availability','text'],
+      ['past_association','Past Association','text'],
+      ['remarks','Remarks','textarea']
+    ],
+
+    students:[
+      ['full_name','Full Name','text'],
+      ['program','Program','text'],
+      ['specialization','Specialization','text'],
+      ['batch_year','Batch (Year)','number'],
+      ['contact_number','Contact Number','text'],
+      ['email','Email','email'],
+      ['location','Location','text'],
+      ['remarks','Remarks','textarea']
+    ],
+
+    companies:[
+      ['company_name','Company Name','text'],
+      ['contact_person_name','Contact Person Name','text'],
+      ['designation','Designation','text'],
+      ['email_id','Email ID','email'],
+      ['linkedin_profile','LinkedIn Profile','url'],
+      ['willingness_to_engage','Willingness to Engage','text'],
+      ['preferred_engagement_type','Preferred Engagement Type','text'],
+      ['availability','Availability','text'],
+      ['remarks','Remarks','textarea']
+    ],
+
+    interactions:[
+      ['alumni_id','Alumni ID','text'],
+      ['contact_person','Contact Person','text'],
+      ['interaction_date','Interaction Date','date'],
+      ['interaction_type','Interaction Type','text'],
+      ['outcome','Outcome','text'],
+      ['next_action','Next Action','text'],
+      ['remarks','Remarks','textarea']
+    ],
+
+    opportunities:[
+      ['alumni_id','Alumni ID','text'],
+      ['company_id','Company ID','text'],
+      ['opportunity_type','Opportunity Type','text'],
+      ['role_title','Role / Title','text'],
+      ['department','Department','text'],
+      ['no_of_positions','No. of Positions','number'],
+      ['start_date','Start Date','date'],
+      ['end_date','End Date','date'],
+      ['duration_months','Duration (Months)','number'],
+      ['stipend','Stipend','text'],
+      ['ctc','CTC','text'],
+      ['location','Location','text'],
+      ['work_mode','Work Mode','text'],
+      ['required_skills','Required Skills','text'],
+      ['technical_skills','Technical Skills','text'],
+      ['soft_skills','Soft Skills','text'],
+      ['qualification','Qualification','text'],
+      ['specialization','Specialization','text'],
+      ['experience_required','Experience Required','text'],
+      ['description','Description','textarea'],
+      ['current_stage','Current Stage','text'],
+      ['probability','Probability %','number'],
+      ['student_assigned','Student Assigned','text'],
+      ['priority','Priority','text'],
+      ['remarks','Remarks','textarea']
+    ],
+
+    mentorships:[
+      ['alumni_id','Alumni ID','text'],
+      ['student_id','Student ID','text'],
+      ['start_date','Start Date','date'],
+      ['status','Status','text'],
+      ['goals','Goals','textarea'],
+      ['remarks','Remarks','textarea']
+    ],
+
+    connections:[
+      ['alumni_id','Alumni ID','text'],
+      ['student_id','Student ID','text'],
+      ['connection_type','Connection Type','text'],
+      ['connection_strength','Connection Strength','text'],
+      ['status','Status','text'],
+      ['remarks','Remarks','textarea']
+    ],
+
+    followups:[
+      ['related_type','Related To','text'],
+      ['related_id','Related ID','text'],
+      ['follow_up_date','Follow-up Date','date'],
+      ['status','Status','text'],
+      ['next_action','Next Action','text'],
+      ['remarks','Remarks','textarea']
+    ]
+  };
+
+  const list=fields[k]||[];
+
+  document.getElementById('modalTitle').textContent=
+    (row?'Edit ':'Add ')+tableMap[k];
+
+  let html='<form onsubmit="saveForm(event,\''+k+'\','+(row?'true':'false')+')">';
+
+  list.forEach(([name,label,type])=>{
+    const value=row?.[name]??'';
+
+    html+='<div class="field">';
+    html+='<label>'+esc(label)+'</label>';
+
+    if(type==='textarea'){
+      html+='<textarea name="'+esc(name)+'" rows="3">'+esc(value)+'</textarea>';
+    }else{
+      html+='<input name="'+esc(name)+'" type="'+esc(type)+'" value="'+esc(value)+'">';
+    }
+
+    html+='</div>';
+  });
+
+  html+='<div style="margin-top:14px">';
+  html+='<button class="btn" type="submit">Save</button> ';
+  html+='<button class="btn secondary" type="button" onclick="closeModal()">Cancel</button>';
+  html+='</div></form>';
+
+  document.getElementById('modalBody').innerHTML=html;
+  document.getElementById('modal').classList.remove('hidden');
+}
+  async function saveForm(e,table,isEdit){e.preventDefault();const fd=new FormData(e.target),obj={};for(const [k,v] of fd.entries()){if(v!==''&&k!=='id')obj[k]=v}if(!isEdit){if(!('owner_id' in obj)&&!('user_id' in obj)&&!['profiles'].includes(table))obj.owner_id=currentUser.id}let res;if(isEdit){const id=fd.get('id');res=await sb.from(table).update(obj).eq('id',id)}else res=await sb.from(table).insert(obj);if(res.error){toast(res.error.message,true);return}toast('Saved successfully');closeModal();route(table)}
 async function deleteRow(table,id){if(!confirm('Delete this record permanently?'))return;const {error}=await sb.from(table).delete().eq('id',id);if(error){toast(error.message,true);return}toast('Deleted');route(table)}
 function exportTable(k){const rows=window.__lastRows||[];getRows(k).then(r=>{const ws=XLSX.utils.json_to_sheet(r);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,tableMap[k].slice(0,31));XLSX.writeFile(wb,`GLA_CRM_${k}_${new Date().toISOString().slice(0,10)}.xlsx`)})}
 async function importExcel(k,file){if(!file)return;try{const buf=await file.arrayBuffer();const wb=XLSX.read(buf,{type:'array'});const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{defval:''});if(!rows.length)throw new Error('No rows found in file');const cols=await getColumns(k);const valid=rows.map(r=>{const o={};for(const [key,val] of Object.entries(r)){const match=cols.find(c=>c.toLowerCase().replace(/[^a-z0-9]/g,'')===key.toLowerCase().replace(/[^a-z0-9]/g,''));if(match&&match!=='id')o[match]=val}if(!('owner_id'in o)&&!('user_id'in o))o.owner_id=currentUser.id;return o}).filter(o=>Object.keys(o).length>0);if(!valid.length)throw new Error('No matching column names found');const {error}=await sb.from(k).insert(valid);if(error)throw error;toast(`${valid.length} rows imported`);route(k)}catch(e){toast(e.message||String(e),true)}}
